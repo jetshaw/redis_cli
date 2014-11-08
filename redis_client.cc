@@ -1,27 +1,8 @@
 #include"redis_client.h"
-#include"debug.h"
 #include<string.h>
 #include<iostream>
 #include<stdlib.h>
-#if 0
-#define DBG printf("%s %d\n",__func__,__LINE__);
-#else
-#define DBG
-#endif
-#if 0
-#if 0
-#define INFO(format, ...) fprintf(stdout, "[INFO]"format,##__VA_ARGS__)
-#define ERROR(format, ...) fprintf(stderr, "[ERROR]"format,##__VA_ARGS__)
-#define TINFO(format, ...) fprintf(stdout, "[INFO][%s]"format, DateTime().date_str,##__VA_ARGS__)
-#define TERROR(format, ...) fprintf(stderr, "[ERROR][%s]"format, DateTime().date_str,##__VA_ARGS__)
-#else
-#define INFO(format, ...)
-#define ERROR(format, ...)
-#define TINFO(format, ...)
-#define TERROR(format, ...)
-#endif
-#endif
-
+#include"debug.h"
 using namespace std;
 int string2svrlist(const char *svrs,vector<ip_port_pair> &svr_list)
 {
@@ -31,12 +12,10 @@ int string2svrlist(const char *svrs,vector<ip_port_pair> &svr_list)
     string svr,ip,port,weight;
     int i,len=strlen(svrs);
     char * index = (char *)svrs;
-    DBG;
     for(;len>0;index++,len--)
     {
         if( *index == ',' )
         {
-    DBG;
             vect_str.push_back(svr);
             svr.clear();
             continue;
@@ -48,7 +27,6 @@ int string2svrlist(const char *svrs,vector<ip_port_pair> &svr_list)
     vector<std::string>::const_iterator it;
     for(it=vect_str.begin();it!=vect_str.end();it++)
     {
-    DBG;
         if( (it->find(':') == string::npos ||
                 it->find(':')==it->rfind(':')) )
             continue;
@@ -70,7 +48,6 @@ int string2svrlist(const char *svrs,vector<ip_port_pair> &svr_list)
         svr_list.push_back(pair);
         std::cout<<pair.ip<<':'<<pair.port<<':'<<pair.weight<<'\n'<<endl;
     }
-    DBG;
     return 0;
 }
 
@@ -148,36 +125,23 @@ int redis_client::connect()
 {
     struct redisContext *tmp=NULL;
     int ret = 0,online=0;
-    for(size_t i = 0;i<m_svrlist.size();i++)
+    int i;
+    for(i = 0;i<m_svrlist.size();i++)
     {
         if(m_svrlist[i].port<=0 ||m_svrlist[i].port>=0xffff)
             continue;
-        if( m_predis_contx != NULL )
-        {
-            if(m_svrlist[i].weight>m_svrlist[online].weight)
-                tmp = m_predis_contx;
-            else
-                continue;
-        }
         m_predis_contx = redisConnectWithTimeout(m_svrlist[i].ip.c_str(),m_svrlist[i].port,m_connect_timeout);
-        std::cout<<"i="<<i<<"online="<<online; 
         if(m_predis_contx == NULL)
         {
             ERROR("redis_client: connect failed!");
-            if( tmp != NULL )
-                m_predis_contx =tmp;
             continue;
         }
         if(m_predis_contx->err)
         {
             ERROR("redis_client: error occured when connecting:%s",m_predis_contx->errstr);
-            
             redisFree(m_predis_contx);
-            if( tmp != NULL )
-                m_predis_contx = tmp;
             continue;
         }
-
         ret = redisSetTimeout(m_predis_contx,m_op_timeout);
         if(ret<0)
         {
@@ -185,20 +149,13 @@ int redis_client::connect()
                 ERROR("redis_client:set timeout failed:%s",m_predis_contx->errstr);
             else
                 ERROR("redis_client:set timeout failed!");
-            redisFree(m_predis_contx);
-            if( tmp != NULL )
-                m_predis_contx = tmp;
             continue;
-
         }
-        if( tmp != NULL )
-            redisFree(tmp);
-        online = i;
-        continue;
+        break;
     }
     if(NULL != m_predis_contx)
     {
-        m_current_cnnt_server = m_svrlist[online];
+        m_current_cnnt_server = m_svrlist[i];
         return 0;
     }
     else
@@ -249,6 +206,11 @@ redisReply* redis_client::do_command(const char* cmd)
     redisReply* reply = (redisReply*)redisCommand(m_predis_contx,cmd);
     if(NULL == reply)
     {
+        if( m_predis_contx==NULL)
+        {
+            close();
+            return NULL;
+        } 
         if(REDIS_OK != m_predis_contx->err)
         {
             ERROR("redis_client: command: \"%s\" Context err:\"%s\"",cmd,m_predis_contx->errstr);
