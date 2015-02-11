@@ -10,6 +10,7 @@
 #define DBG
 #endif
 
+#define XREDIS_ERR(format,...) printf(format,##__VA_ARGS__)
 
 using namespace std;
 //ip 和端口、权重
@@ -36,15 +37,11 @@ class redis_client{
         void set_svr_list(string svrlist);//设置服务端列表
         void set_connect_timeout(int);//设置连接超时时间
         void set_op_timeout(int);//设置操作超时时间
-        void add_svr_list(string svrlist);//增加服务端列表
-        void add_svr(string ip,int port,int weight);//增加单个服务端
-        void add_svr(const char *ip,int port,int weight);//增加单个服务端
 
-        int connect();//redis客户端连接函数，从服务端列表中选取一个权重最高的服务端去连接
+        int connect();//redis客户端连接函数，从服务端列表中选取一个服务端连接
         int use_db();//使用数据库
         int close();//关闭客户端
         int is_connected();//判断客户端是不是在连接状态
-        int get_cur_svr_connted(struct ip_port_pair& pair);//获取当前连接的服务端地址端口和权重信息
         int reconnect();//重新连接客户端
         redisReply* do_command(const char* cmd);//执行redis命令
     private:
@@ -54,7 +51,6 @@ class redis_client{
         struct timeval m_op_timeout;//操作超时时间
         string         m_sdb_name;//数据库名称
         redisContext*  m_predis_contx;//连接库时返回的结构，包含所有连接状态信息
-        struct ip_port_pair m_current_cnnt_server;
 };
 
 #endif  //__REDIS_CLIENT_H_

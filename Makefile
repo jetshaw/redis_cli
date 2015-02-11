@@ -1,5 +1,5 @@
 target=client
 GCC=g++
-CFLAGS =
+CFLAGS = -g
 all:
-	$(GCC) $(CFLAGS) test.cc redis_client.cc libhiredis.a -o client 
+	$(GCC) $(CFLAGS) redis_client.cc libhiredis.a -o client 
